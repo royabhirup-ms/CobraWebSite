@@ -1,0 +1,114 @@
+name: Build and deploy ASP.Net framework 4.6 app to an Azure Web App
+ 
+env:
+  AZURE_WEBAPP_NAME_DEV: dev-cobra-dotnet-webapp    # set this to the name of your Azure Web App
+  AZURE_WEBAPP_NAME_STAGE: stg-cobra-dotnet-webapp    # set this to the name of your Azure Web App
+  AZURE_WEBAPP_NAME: cobra-dotnet-webapp    # set this to the name of your Azure Web App
+  AZURE_WEBAPP_PACKAGE_PATH: '.'      # set this to the path to your web app project, defaults to the repository root
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch: 
+permissions:
+  contents: read 
+jobs:
+  build:
+    runs-on: windows-latest 
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build and publish website project
+        run: |
+          # Pre-compile the website using aspnet_compiler
+          aspnet_compiler -v /cobrawebsite -p cobrawebsite\ -targetDir publish\
+          
+      - name: List build output
+        run: |
+          echo "Contents of workspace:"
+          dir
+          echo "Checking for publish directory:"
+          if (Test-Path "publish") { 
+            echo "Publish directory found:"
+            dir publish -Recurse 
+          } else { 
+            echo "Publish directory not found"
+          }
+
+      - name: Upload published artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: .net-app
+          path: publish
+
+  deploytodev:
+    permissions:
+      contents: none
+    runs-on: windows-latest
+    needs: build
+    environment:
+      name: 'Development'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+ 
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+ 
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME_DEV }}
+          publish-profile: ${{ secrets.devgithubsecretappdeployment }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+
+  deploytostage:
+     permissions:
+      contents: none
+     runs-on: windows-latest
+     needs: deploytodev
+     environment:
+      name: 'Stage'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+ 
+     steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+ 
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME_STAGE }}
+          publish-profile: ${{ secrets.stggithubsecretappdeployment }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+
+  deploytoproduction:
+    permissions:
+      contents: none
+    runs-on: windows-latest
+    needs: deploytostage
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+ 
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+ 
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.githubsecretappdeployment }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
