@@ -23,15 +23,27 @@ jobs:
 
       - name: Build and publish website project
         run: |
-          # Publish the website using MSBuild
-          msbuild cobrawebsite.sln `
-          /p:Configuration=Release `
-          /p:Platform="Any CPU" `
-          /p:WebPublishMethod=FileSystem `
-          /p:PublishUrl=publish\ `
-          /p:DeployDefaultTarget=WebPublish `
-          /p:PublishProfile=FolderProfile `
-          /t:WebPublish
+          # Create publish directory
+          New-Item -ItemType Directory -Path "publish" -Force
+          
+          # Use aspnet_compiler.exe from .NET Framework installation
+          $aspnetCompiler = "${env:ProgramFiles(x86)}\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\aspnet_compiler.exe"
+          
+          if (Test-Path $aspnetCompiler) {
+            Write-Host "Using aspnet_compiler from Windows SDK"
+            & $aspnetCompiler -v /cobrawebsite -p "cobrawebsite\" -f "publish\"
+          } else {
+            Write-Host "aspnet_compiler not found in Windows SDK, using fallback method"
+            # Fallback: Use MSBuild to compile and then copy files
+            msbuild cobrawebsite.sln /p:Configuration=Release /p:Platform="Any CPU" /t:Build
+            
+            # Copy website files to publish directory
+            Copy-Item -Path "cobrawebsite\*" -Destination "publish\" -Recurse -Force
+            
+            # Remove source files that shouldn't be deployed
+            Get-ChildItem "publish\" -Filter "*.cs" -Recurse | Remove-Item -Force
+            if (Test-Path "publish\obj") { Remove-Item "publish\obj" -Recurse -Force }
+          }
           
       - name: List build output
         run: |
@@ -114,7 +126,7 @@ jobs:
  
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
-        uses: azure/webapps-deploy@v2
+        uses: actions/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.githubsecretappdeployment }}
