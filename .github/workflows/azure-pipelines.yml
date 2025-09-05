@@ -26,62 +26,91 @@ jobs:
           # Create publish directory
           New-Item -ItemType Directory -Path "publish" -Force
           
-          # Try to build the website to generate bin folder with DLLs
-          Write-Host "Attempting to build website to generate compiled assemblies..."
-          try {
-            # Try to build just the website project (not the solution)
-            msbuild "cobrawebsite\" /p:Configuration=Release /p:Platform="Any CPU" /t:Build -verbosity:minimal
-            Write-Host "Build completed successfully"
-          } catch {
-            Write-Host "Build failed, continuing with file copy approach"
+          # Check if we have any references that need to be resolved
+          if (Test-Path "cobrawebsite\web.config") {
+            Write-Host "Found web.config, checking for assembly references..."
+            $webConfig = Get-Content "cobrawebsite\web.config" -Raw
+            if ($webConfig -match "<assemblies>|<compilation") {
+              Write-Host "Found compilation/assembly references in web.config"
+            }
           }
           
           # Use aspnet_compiler.exe from .NET Framework installation
           $aspnetCompiler = "${env:ProgramFiles(x86)}\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\aspnet_compiler.exe"
           
           if (Test-Path $aspnetCompiler) {
-            Write-Host "Using aspnet_compiler from Windows SDK"
+            Write-Host "Using aspnet_compiler from Windows SDK to precompile website"
             & $aspnetCompiler -v /cobrawebsite -p "cobrawebsite\" -f "publish\"
-          } else {
-            Write-Host "aspnet_compiler not found in Windows SDK, using manual copy method"
             
-            # Copy all website files including bin folder
+            # Check if precompilation was successful
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Precompilation successful - compiled assemblies created"
+            } else {
+              Write-Host "Precompilation failed, falling back to file copy"
+              Remove-Item "publish\*" -Recurse -Force -ErrorAction SilentlyContinue
+              Copy-Item -Path "cobrawebsite\*" -Destination "publish\" -Recurse -Force
+            }
+          } else {
+            Write-Host "aspnet_compiler not found, using file system deployment approach"
+            
+            # For website projects without pre-compilation, copy all source files
+            # The compilation will happen at runtime on the server
             Copy-Item -Path "cobrawebsite\*" -Destination "publish\" -Recurse -Force
             
-            # Ensure bin folder is copied with all DLLs
-            if (Test-Path "cobrawebsite\bin") {
-              Write-Host "Copying bin folder with compiled assemblies..."
-              if (!(Test-Path "publish\bin")) { New-Item -ItemType Directory -Path "publish\bin" -Force }
-              Copy-Item -Path "cobrawebsite\bin\*" -Destination "publish\bin\" -Recurse -Force
-            } else {
-              Write-Host "Warning: No bin folder found. Website may not have compiled assemblies."
+            # Create bin directory if it doesn't exist and copy any existing DLLs
+            if (!(Test-Path "publish\bin")) { 
+              New-Item -ItemType Directory -Path "publish\bin" -Force 
+              Write-Host "Created bin directory for runtime compilation"
             }
             
-            # Only remove source files, keep all DLLs and compiled assemblies
+            # If there are any DLLs in the source bin folder, copy them
+            if (Test-Path "cobrawebsite\bin") {
+              Write-Host "Copying existing bin folder contents..."
+              Copy-Item -Path "cobrawebsite\bin\*" -Destination "publish\bin\" -Recurse -Force
+            }
+            
+            # Clean up unnecessary files for deployment
             Get-ChildItem "publish\" -Filter "*.cs" -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
             if (Test-Path "publish\obj") { Remove-Item "publish\obj" -Recurse -Force -ErrorAction SilentlyContinue }
-            
-            # Don't remove Debug folder if it contains DLLs
-            if (Test-Path "publish\bin\Debug") {
-              $debugDlls = Get-ChildItem "publish\bin\Debug" -Filter "*.dll" -ErrorAction SilentlyContinue
-              if ($debugDlls.Count -eq 0) {
-                Remove-Item "publish\bin\Debug" -Recurse -Force -ErrorAction SilentlyContinue
-                Write-Host "Removed empty Debug folder"
-              } else {
-                Write-Host "Keeping Debug folder as it contains DLL files"
-              }
-            }
           }
           
-      - name: Verify DLLs in publish directory
+          # Ensure web.config exists for proper ASP.NET operation
+          if (!(Test-Path "publish\web.config")) {
+            Write-Host "Warning: No web.config found in publish directory"
+          } else {
+            Write-Host "web.config found in publish directory"
+          }
+          
+      - name: Verify deployment package
         run: |
-          echo "Checking for DLL files in publish directory:"
-          if (Test-Path "publish\bin") {
-            Get-ChildItem "publish\bin" -Filter "*.dll" -Recurse | ForEach-Object { 
-              Write-Host "Found DLL: $($_.FullName)" 
+          echo "=== Deployment Package Contents ==="
+          if (Test-Path "publish") {
+            Write-Host "Main files in publish directory:"
+            Get-ChildItem "publish\" -File | ForEach-Object { Write-Host "  $($_.Name)" }
+            
+            Write-Host "`nDirectories in publish:"
+            Get-ChildItem "publish\" -Directory | ForEach-Object { Write-Host "  $($_.Name)/" }
+            
+            if (Test-Path "publish\bin") {
+              Write-Host "`nBin directory contents:"
+              Get-ChildItem "publish\bin" -Recurse | ForEach-Object { 
+                Write-Host "  bin\$($_.Name)" 
+              }
+            } else {
+              Write-Host "`nNo bin directory (runtime compilation will be used)"
+            }
+            
+            # Check for essential files
+            $essentialFiles = @("web.config", "Default.aspx")
+            foreach ($file in $essentialFiles) {
+              if (Test-Path "publish\$file") {
+                Write-Host "? Found essential file: $file"
+              } else {
+                Write-Host "? Missing essential file: $file"
+              }
             }
           } else {
-            Write-Host "Warning: No bin directory found in publish folder"
+            Write-Host "ERROR: Publish directory not found!"
           }
           
       - name: List build output
@@ -102,71 +131,71 @@ jobs:
           name: .net-app
           path: publish
 
-  # deploytodev:
-  #   permissions:
-  #     contents: none
-  #   runs-on: windows-latest
-  #   needs: build
-  #   environment:
-  #     name: 'Development'
-  #     url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+  deploytodev:
+    permissions:
+      contents: none
+    runs-on: windows-latest
+    needs: build
+    environment:
+      name: 'Development'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
  
-  #   steps:
-  #     - name: Download artifact from build job
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: .net-app
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
  
-  #     - name: Deploy to Azure Web App
-  #       id: deploy-to-webapp
-  #       uses: azure/webapps-deploy@v2
-  #       with:
-  #         app-name: ${{ env.AZURE_WEBAPP_NAME_DEV }}
-  #         publish-profile: ${{ secrets.devgithubsecretappdeployment }}
-  #         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME_DEV }}
+          publish-profile: ${{ secrets.devgithubsecretappdeployment }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
-  # deploytostage:
-  #    permissions:
-  #     contents: none
-  #    runs-on: windows-latest
-  #    needs: deploytodev
-  #    environment:
-  #     name: 'Stage'
-  #     url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+  deploytostage:
+     permissions:
+      contents: none
+     runs-on: windows-latest
+     needs: deploytodev
+     environment:
+      name: 'Stage'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
  
-  #    steps:
-  #     - name: Download artifact from build job
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: .net-app
+     steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
  
-  #     - name: Deploy to Azure Web App
-  #       id: deploy-to-webapp
-  #       uses: azure/webapps-deploy@v2
-  #       with:
-  #         app-name: ${{ env.AZURE_WEBAPP_NAME_STAGE }}
-  #         publish-profile: ${{ secrets.stggithubsecretappdeployment }}
-  #         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME_STAGE }}
+          publish-profile: ${{ secrets.stggithubsecretappdeployment }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
-  # deploytoproduction:
-  #   permissions:
-  #     contents: none
-  #   runs-on: windows-latest
-  #   needs: deploytostage
-  #   environment:
-  #     name: 'Production'
-  #     url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+  deploytoproduction:
+    permissions:
+      contents: none
+    runs-on: windows-latest
+    needs: deploytostage
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
  
-  #   steps:
-  #     - name: Download artifact from build job
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: .net-app
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
  
-  #     - name: Deploy to Azure Web App
-  #       id: deploy-to-webapp
-  #       uses: azure/webapps-deploy@v2
-  #       with:
-  #         app-name: ${{ env.AZURE_WEBAPP_NAME }}
-  #         publish-profile: ${{ secrets.githubsecretappdeployment }}
-  #         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.githubsecretappdeployment }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
