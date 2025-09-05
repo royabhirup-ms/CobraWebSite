@@ -23,11 +23,15 @@ jobs:
 
       - name: Build and publish website project
         run: |
-          # Create publish directory
-          if (!(Test-Path "publish")) { New-Item -ItemType Directory -Path "publish" }
-          
-          # Copy the website files to publish directory (Website projects don't need compilation)
-          Copy-Item -Path "cobrawebsite\*" -Destination "publish\" -Recurse -Force
+          # Publish the website using MSBuild
+          msbuild cobrawebsite.sln `
+          /p:Configuration=Release `
+          /p:Platform="Any CPU" `
+          /p:WebPublishMethod=FileSystem `
+          /p:PublishUrl=publish\ `
+          /p:DeployDefaultTarget=WebPublish `
+          /p:PublishProfile=FolderProfile `
+          /t:WebPublish
           
       - name: List build output
         run: |
