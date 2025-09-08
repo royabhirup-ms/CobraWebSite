@@ -47,65 +47,74 @@ jobs:
       - name: Upload published artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cobra-app
+          name: .net-app
           path: publish
 
-  # deploytodev:
-  #   runs-on: windows-latest
-  #   needs: build
-  #   environment:
-  #     name: 'Development'
-  #     url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-  #   steps:
-  #     - name: Download artifact
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: cobra-app
+  deploytodev:
+    permissions:
+      contents: none
+    runs-on: windows-latest
+    needs: build
+    environment:
+      name: 'Development'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
  
-  #     - name: Deploy to Dev
-  #       id: deploy-to-webapp
-  #       uses: azure/webapps-deploy@v2
-  #       with:
-  #         app-name: ${{ env.AZURE_WEBAPP_NAME_DEV }}
-  #         publish-profile: ${{ secrets.devgithubsecretappdeployment }}
-  #         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+ 
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME_DEV }}
+          publish-profile: ${{ secrets.devgithubsecretappdeployment }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
-  # deploytostage:
-  #   runs-on: windows-latest
-  #   needs: deploytodev
-  #   environment:
-  #     name: 'Stage'
-  #     url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-  #   steps:
-  #     - name: Download artifact
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: cobra-app
+  deploytostage:
+     permissions:
+      contents: none
+     runs-on: windows-latest
+     needs: deploytodev
+     environment:
+      name: 'Stage'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
  
-  #     - name: Deploy to Stage
-  #       id: deploy-to-webapp
-  #       uses: azure/webapps-deploy@v2
-  #       with:
-  #         app-name: ${{ env.AZURE_WEBAPP_NAME_STAGE }}
-  #         publish-profile: ${{ secrets.stggithubsecretappdeployment }}
-  #         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+     steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+ 
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME_STAGE }}
+          publish-profile: ${{ secrets.stggithubsecretappdeployment }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
-  # deploytoproduction:
-  #   runs-on: windows-latest
-  #   needs: deploytostage
-  #   environment:
-  #     name: 'Production'
-  #     url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-  #   steps:
-  #     - name: Download artifact
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: cobra-app
+  deploytoproduction:
+    permissions:
+      contents: none
+    runs-on: windows-latest
+    needs: deploytostage
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
  
-  #     - name: Deploy to Production
-  #       id: deploy-to-webapp
-  #       uses: azure/webapps-deploy@v2
-  #       with:
-  #         app-name: ${{ env.AZURE_WEBAPP_NAME }}
-  #         publish-profile: ${{ secrets.githubsecretappdeployment }}
-  #         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+ 
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.githubsecretappdeployment }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
