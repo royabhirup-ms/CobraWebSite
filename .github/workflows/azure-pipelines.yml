@@ -27,20 +27,32 @@ jobs:
         with:
           nuget-version: 'latest'
 
-      - name: Restore NuGet packages for Cobra.Data project
-        run: nuget restore Cobra.Data\packages.config -SolutionDirectory .
+      - name: Restore NuGet packages for class library
+        run: nuget restore Cobra.Data\Cobra.Data.csproj
 
-      - name: Restore NuGet packages for cobrawebsite
-        run: nuget restore cobrawebsite\packages.config -SolutionDirectory .
-
-      - name: Restore NuGet packages for solution
-        run: nuget restore cobrawebsite.sln
-
-      - name: Build solution
+      - name: Install packages for website
         run: |
-          msbuild cobrawebsite.sln `
+          nuget install cobrawebsite\packages.config -OutputDirectory packages
+          nuget install Cobra.Data\packages.config -OutputDirectory packages
+
+      - name: Build Cobra.Data project
+        run: |
+          msbuild Cobra.Data\Cobra.Data.csproj `
           /p:Configuration=Release `
           /p:Platform="Any CPU"
+
+      - name: Copy dependencies to website Bin folder
+        run: |
+          # Ensure cobrawebsite\Bin directory exists
+          if (!(Test-Path "cobrawebsite\Bin")) { New-Item -ItemType Directory -Path "cobrawebsite\Bin" -Force }
+          
+          # Copy Cobra.Data output
+          Copy-Item -Path "Cobra.Data\bin\Release\Cobra.Data.dll" -Destination "cobrawebsite\Bin\" -Force
+          
+          # Copy package dependencies from packages folder to website Bin
+          Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Where-Object { $_.Directory.Name -like "*net4*" -or $_.Directory.Name -like "*lib*" } | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination "cobrawebsite\Bin\" -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Precompile and publish website
         run: |
@@ -48,8 +60,10 @@ jobs:
           C:\Windows\Microsoft.NET\Framework64\v4.0.30319\aspnet_compiler.exe `
           -v / -p cobrawebsite -f -u publish
           
-          # Copy Bin directory with NuGet packages
-          Copy-Item -Path "cobrawebsite\Bin\*" -Destination "publish\Bin\" -Recurse -Force
+          # Copy Bin directory with all dependencies
+          if (Test-Path "cobrawebsite\Bin") {
+            Copy-Item -Path "cobrawebsite\Bin\*" -Destination "publish\Bin\" -Recurse -Force
+          }
           
           Write-Host "Published website with dependencies"
           
@@ -103,7 +117,7 @@ jobs:
   #       with:
   #         app-name: ${{ env.AZURE_WEBAPP_NAME_STAGE }}
   #         publish-profile: ${{ secrets.stggithubsecretappdeployment }}
-  #         package: ${{ env.AZURE_WEBAPP_PATH }}
+  #         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
   # deploytoproduction:
   #   permissions:
