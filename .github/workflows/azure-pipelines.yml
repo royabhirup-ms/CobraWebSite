@@ -21,17 +21,22 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Build and publish website project
+      - name: Build solution
         run: |
-          # Publish the website using MSBuild
+          # Build the entire solution (class library will be built automatically)
           msbuild cobrawebsite.sln `
           /p:Configuration=Release `
-          /p:Platform="Any CPU" `
-          /p:WebPublishMethod=FileSystem `
-          /p:PublishUrl=publish\ `
-          /p:DeployDefaultTarget=WebPublish `
-          /p:PublishProfile=FolderProfile `
-          /t:WebPublish
+          /p:Platform="Any CPU"
+
+      - name: Precompile ASP.NET Website
+        run: |
+          # Use aspnet_compiler to precompile the website
+          C:\Windows\Microsoft.NET\Framework64\v4.0.30319\aspnet_compiler.exe `
+          -v / `
+          -p cobrawebsite `
+          -f `
+          -u `
+          publish
           
       - name: List build output
         run: |
