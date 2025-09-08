@@ -21,9 +21,6 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Restore NuGet packages
-        run: nuget restore cobrawebsite.sln
-
       - name: Build and publish website project
         run: |
           # Publish the website using MSBuild
