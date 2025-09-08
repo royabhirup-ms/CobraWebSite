@@ -29,7 +29,7 @@ jobs:
       - name: Restore NuGet packages
         run: |
           # Restore NuGet packages for the solution
-          nuget restore cobrawebsite.sln -SolutionDirectory .
+          nuget restore cobrawebsite.sln
 
       - name: Build solution
         run: |
