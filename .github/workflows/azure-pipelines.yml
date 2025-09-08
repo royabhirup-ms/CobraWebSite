@@ -1,19 +1,16 @@
 ﻿name: Build and deploy ASP.Net framework 4.6 app to an Azure Web App
  
 env:
-  AZURE_WEBAPP_NAME_DEV: dev-cobra-dotnet-webapp
-  AZURE_WEBAPP_NAME_STAGE: stg-cobra-dotnet-webapp
-  AZURE_WEBAPP_NAME: cobra-dotnet-webapp
-  AZURE_WEBAPP_PACKAGE_PATH: '.'
-
+  AZURE_WEBAPP_NAME_DEV: dev-cobra-dotnet-webapp    # set this to the name of your Azure Web App
+  AZURE_WEBAPP_NAME_STAGE: stg-cobra-dotnet-webapp    # set this to the name of your Azure Web App
+  AZURE_WEBAPP_NAME: cobra-dotnet-webapp    # set this to the name of your Azure Web App
+  AZURE_WEBAPP_PACKAGE_PATH: '.'      # set this to the path to your web app project, defaults to the repository root
 on:
   push:
     branches: [ "master" ]
   workflow_dispatch: 
-
 permissions:
   contents: read 
-
 jobs:
   build:
     runs-on: windows-latest 
@@ -24,53 +21,37 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Precompile website
-        run: |
-          # Find aspnet_compiler
-          $aspnetCompilerPaths = @(
-            "${env:WINDIR}\Microsoft.NET\Framework64\v4.0.30319\aspnet_compiler.exe",
-            "${env:WINDIR}\Microsoft.NET\Framework\v4.0.30319\aspnet_compiler.exe",
-            "${env:ProgramFiles(x86)}\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\aspnet_compiler.exe"
-          )
-          
-          $aspnetCompiler = $aspnetCompilerPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
-          
-          if (-not $aspnetCompiler) {
-            Write-Host "❌ aspnet_compiler not found"
-            exit 1
-          }
-          
-          Write-Host "✅ Using aspnet_compiler: $aspnetCompiler"
-          
-          # Precompile website
-          & $aspnetCompiler -v /cobrawebsite -p "cobrawebsite\" -f "publish\"
-          
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "❌ Precompilation failed"
-            exit 1
-          }
-          
-          # Verify assemblies were created
-          $assemblies = Get-ChildItem "publish\bin" -Filter "*.dll" -ErrorAction SilentlyContinue
-          Write-Host "✅ Created $($assemblies.Count) assemblies"
+      - name: Restore NuGet packages
+        run: nuget restore cobrawebsite.sln
 
-      - name: Create ZIP package
+      - name: Build and publish website project
         run: |
-          Compress-Archive -Path "publish\*" -DestinationPath "deployment-package.zip" -Force
-          $zipSize = [math]::Round((Get-Item "deployment-package.zip").Length/1MB, 2)
-          Write-Host "✅ ZIP package created: $zipSize MB"
-
-      - name: Upload artifacts
+          # Publish the website using MSBuild
+          msbuild cobrawebsite.sln `
+          /p:Configuration=Release `
+          /p:Platform="Any CPU" `
+          /p:WebPublishMethod=FileSystem `
+          /p:PublishUrl=publish\ `
+          /p:DeployDefaultTarget=WebPublish `
+          /p:PublishProfile=FolderProfile `
+          /t:WebPublish
+          
+      - name: List build output
+        run: |
+          echo "Contents of workspace:"
+          dir
+          echo "Checking for publish directory:"
+          if (Test-Path "publish") { 
+            echo "Publish directory found:"
+            dir publish -Recurse 
+          } else { 
+            echo "Publish directory not found"
+          }
+      - name: Upload published artifact
         uses: actions/upload-artifact@v4
         with:
-          name: .net-app
+          name: cobra-app
           path: publish
-
-      - name: Upload ZIP package
-        uses: actions/upload-artifact@v4
-        with:
-          name: deployment-package
-          path: deployment-package.zip
 
   # deploytodev:
   #   runs-on: windows-latest
@@ -82,7 +63,7 @@ jobs:
   #     - name: Download artifact
   #       uses: actions/download-artifact@v4
   #       with:
-  #         name: .net-app
+  #         name: cobra-app
  
   #     - name: Deploy to Dev
   #       id: deploy-to-webapp
@@ -102,7 +83,7 @@ jobs:
   #     - name: Download artifact
   #       uses: actions/download-artifact@v4
   #       with:
-  #         name: .net-app
+  #         name: cobra-app
  
   #     - name: Deploy to Stage
   #       id: deploy-to-webapp
@@ -122,7 +103,7 @@ jobs:
   #     - name: Download artifact
   #       uses: actions/download-artifact@v4
   #       with:
-  #         name: .net-app
+  #         name: cobra-app
  
   #     - name: Deploy to Production
   #       id: deploy-to-webapp
