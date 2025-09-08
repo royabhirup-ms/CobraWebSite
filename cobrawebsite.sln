@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "cobrawebsite", "http://localhost:60634", "{BEC4DAEF-65E6-438C-FCE7-A54A02D687F0}"
+Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "cobrawebsite", "cobrawebsite\", "{BEC4DAEF-65E6-438C-FCE7-A54A02D687F0}"
 	ProjectSection(WebsiteProperties) = preProject
 		UseIISExpress = "true"
 		TargetFrameworkMoniker = ".NETFramework,Version%3Dv4.6"
@@ -22,6 +22,7 @@ Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "cobrawebsite", "http://loca
 		Release.AspNetCompiler.ForceOverwrite = "true"
 		Release.AspNetCompiler.FixedNames = "false"
 		Release.AspNetCompiler.Debug = "False"
+		VWDPort = "54979"
 		SlnRelativePath = "cobrawebsite\"
 	EndProjectSection
 EndProject
