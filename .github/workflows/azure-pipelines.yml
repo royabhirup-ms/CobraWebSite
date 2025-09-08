@@ -1,10 +1,11 @@
 ﻿name: Build and deploy ASP.Net framework 4.6 app to an Azure Web App
  
 env:
-  AZURE_WEBAPP_NAME_DEV: dev-cobra-dotnet-webapp    # set this to the name of your Azure Web App
-  AZURE_WEBAPP_NAME_STAGE: stg-cobra-dotnet-webapp    # set this to the name of your Azure Web App
-  AZURE_WEBAPP_NAME: cobra-dotnet-webapp    # set this to the name of your Azure Web App
-  AZURE_WEBAPP_PACKAGE_PATH: '.'      # set this to the path to your web app project, defaults to the repository root
+  AZURE_WEBAPP_NAME_DEV: dev-cobra-dotnet-webapp
+  AZURE_WEBAPP_NAME_STAGE: stg-cobra-dotnet-webapp
+  AZURE_WEBAPP_NAME: cobra-dotnet-webapp
+  AZURE_WEBAPP_PACKAGE_PATH: '.'
+
 on:
   push:
     branches: [ "master" ]
@@ -27,44 +28,26 @@ jobs:
           nuget-version: 'latest'
 
       - name: Restore NuGet packages
-        run: |
-          # Restore NuGet packages for the solution
-          nuget restore cobrawebsite.sln
+        run: nuget restore cobrawebsite.sln
 
       - name: Build solution
         run: |
-          # Build the entire solution (class library will be built automatically)
           msbuild cobrawebsite.sln `
           /p:Configuration=Release `
           /p:Platform="Any CPU"
 
-      - name: Precompile ASP.NET Website
+      - name: Precompile and publish website
         run: |
-          # Use aspnet_compiler to precompile the website
+          # Precompile the website
           C:\Windows\Microsoft.NET\Framework64\v4.0.30319\aspnet_compiler.exe `
-          -v / `
-          -p cobrawebsite `
-          -f `
-          -u `
-          publish
+          -v / -p cobrawebsite -f -u publish
           
-      - name: List build output
-        run: |
-          echo "Contents of workspace:"
-          dir
-          echo "Checking for publish directory:"
-          if (Test-Path "publish") { 
-            echo "Publish directory found:"
-            dir publish -Recurse 
-          } else { 
-            echo "Publish directory not found"
-          }
-          echo "Checking for packages directory:"
-          if (Test-Path "packages") { 
-            echo "Packages directory found:"
-            dir packages -Recurse | Where-Object Name -like "*Newtonsoft*"
-          }
-      - name: Upload published artifact
+          # Copy Bin directory with NuGet packages
+          Copy-Item -Path "cobrawebsite\Bin\*" -Destination "publish\Bin\" -Recurse -Force
+          
+          Write-Host "Published website with dependencies"
+          
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: cobra-app
