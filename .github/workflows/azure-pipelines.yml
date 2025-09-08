@@ -21,6 +21,16 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+        with:
+          nuget-version: 'latest'
+
+      - name: Restore NuGet packages
+        run: |
+          # Restore NuGet packages for the solution (includes Newtonsoft.Json)
+          nuget restore cobrawebsite.sln
+
       - name: Build solution
         run: |
           # Build the entire solution (class library will be built automatically)
@@ -48,6 +58,11 @@ jobs:
             dir publish -Recurse 
           } else { 
             echo "Publish directory not found"
+          }
+          echo "Checking for packages directory:"
+          if (Test-Path "packages") { 
+            echo "Packages directory found:"
+            dir packages -Recurse | Where-Object Name -like "*Newtonsoft*"
           }
       - name: Upload published artifact
         uses: actions/upload-artifact@v4
