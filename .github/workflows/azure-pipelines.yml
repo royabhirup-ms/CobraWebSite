@@ -27,7 +27,13 @@ jobs:
         with:
           nuget-version: 'latest'
 
-      - name: Restore NuGet packages
+      - name: Restore NuGet packages for Cobra.Data project
+        run: nuget restore Cobra.Data\packages.config -SolutionDirectory .
+
+      - name: Restore NuGet packages for cobrawebsite
+        run: nuget restore cobrawebsite\packages.config -SolutionDirectory .
+
+      - name: Restore NuGet packages for solution
         run: nuget restore cobrawebsite.sln
 
       - name: Build solution
@@ -97,7 +103,7 @@ jobs:
   #       with:
   #         app-name: ${{ env.AZURE_WEBAPP_NAME_STAGE }}
   #         publish-profile: ${{ secrets.stggithubsecretappdeployment }}
-  #         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+  #         package: ${{ env.AZURE_WEBAPP_PATH }}
 
   # deploytoproduction:
   #   permissions:
