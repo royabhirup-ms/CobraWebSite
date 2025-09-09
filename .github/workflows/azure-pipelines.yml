@@ -1,7 +1,7 @@
 ﻿name: Build and deploy ASP.Net framework 4.6 app to an Azure Web App
  
 env:
-  AZURE_WEBAPP_NAME_DEV: dev-cobra-dotnet-webapp
+  AZURE_WEBAPP_NAME_DEV: cobra-webapp
   AZURE_WEBAPP_NAME_STAGE: stg-cobra-dotnet-webapp
   AZURE_WEBAPP_NAME: cobra-dotnet-webapp
   AZURE_WEBAPP_PACKAGE_PATH: '.'
@@ -60,28 +60,28 @@ jobs:
           name: cobra-app
           path: publish
 
-  # deploytodev:
-  #   permissions:
-  #     contents: none
-  #   runs-on: windows-latest
-  #   needs: build
-  #   environment:
-  #     name: 'Development'
-  #     url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+  deploytodev:
+    permissions:
+      contents: none
+    runs-on: windows-latest
+    needs: build
+    environment:
+      name: 'Development'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
  
-  #   steps:
-  #     - name: Download artifact from build job
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: cobra-app
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: cobra-app
  
-  #     - name: Deploy to Azure Web App
-  #       id: deploy-to-webapp
-  #       uses: azure/webapps-deploy@v2
-  #       with:
-  #         app-name: ${{ env.AZURE_WEBAPP_NAME_DEV }}
-  #         publish-profile: ${{ secrets.devgithubsecretappdeployment }}
-  #         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME_DEV }}
+          publish-profile: ${{ secrets.devgithubsecretappdeployment }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
   # deploytostage:
   #    permissions:
