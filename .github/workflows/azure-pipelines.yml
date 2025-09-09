@@ -32,7 +32,7 @@ jobs:
       - name: Restore packages
         run: |
           # Clean and restore packages
-          Remove-Item -Path "packages" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path "packages" -Recurse -Force
           # Nuget restore for class libraries if any
           nuget restore cobrawebsite.sln -PackagesDirectory packages
           # Nuget restore for website project if packages.config exists
@@ -46,13 +46,13 @@ jobs:
           
       - name: Copy dependencies from nuget and build
         run: |
-          New-Item -ItemType Directory -Path "cobrawebsite\Bin" -Force -ErrorAction SilentlyContinue
-          Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Where-Object { $_.Directory.Name -like "net4*" } | Copy-Item -Destination "cobrawebsite\Bin\" -Force
+          New-Item -ItemType Directory -Path "cobrawebsite\Bin" -Force
+          Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Where-Object { $_.Directory.Name -like "net4*" } | Copy-Item -Destination "publish\Bin\" -Force
           
       - name: Publish website
         run: |
           C:\Windows\Microsoft.NET\Framework64\v4.0.30319\aspnet_compiler.exe -v / -p cobrawebsite -f -u publish
-          Copy-Item -Path "cobrawebsite\Bin\*" -Destination "publish\Bin\" -Recurse -Force
+          #Copy-Item -Path "cobrawebsite\Bin\*" -Destination "publish\Bin\" -Recurse -Force
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
