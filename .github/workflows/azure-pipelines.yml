@@ -45,7 +45,11 @@ jobs:
       - name: Copy dependencies from nuget and build
         run: |
           if (!(Test-Path "cobrawebsite\Bin")) { New-Item -ItemType Directory -Path "cobrawebsite\Bin" -Force }
-          Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Where-Object { $_.Directory.Name -like "net4*" } | Copy-Item -Destination "cobrawebsite\Bin\" -Force
+          Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Where-Object {
+            $_.Directory.Name -like "net4*"
+          } | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination "cobrawebsite\Bin\" -Force
+          }
 
       - name: Build Solution
         run: |
