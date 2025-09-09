@@ -46,7 +46,7 @@ jobs:
           
       - name: Copy dependencies from nuget and build
         run: |
-        if (!(Test-Path "publish\Bin")) { New-Item -ItemType Directory -Path "publish\Bin" -Force }
+          if (!(Test-Path "publish\Bin")) { New-Item -ItemType Directory -Path "publish\Bin" -Force }
           Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Where-Object { $_.Directory.Name -like "net4*" } | Copy-Item -Destination "publish\Bin\" -Force
           
       - name: Publish website
