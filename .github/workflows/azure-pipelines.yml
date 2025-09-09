@@ -1,10 +1,12 @@
-﻿name: Build and deploy ASP.Net framework 4.6 app to an Azure Web App
+﻿name: Build and deploy cobra website (.Net framework 4.6) to Azure Web App (Windows)
  
 env:
   AZURE_WEBAPP_NAME_DEV: cobra-webapp
   AZURE_WEBAPP_NAME_STAGE: stg-cobra-dotnet-webapp
   AZURE_WEBAPP_NAME: cobra-dotnet-webapp
   AZURE_WEBAPP_PACKAGE_PATH: '.'
+  SLN_FILE: cobrawebsite.sln
+  WEBSITE_PROJECT: cobrawebsite
 
 on:
   push:
@@ -34,25 +36,25 @@ jobs:
           # Clean and restore packages
           if (Test-Path "packages") { Remove-Item -Path "packages" -Recurse -Force }
           # Nuget restore for class libraries if any
-          nuget restore cobrawebsite.sln -PackagesDirectory packages
+          nuget restore ${{ env.SLN_FILE }} -PackagesDirectory packages
           # Nuget restore for website project if packages.config exists
-          if (Test-Path "cobrawebsite\packages.config") {
-            nuget restore "cobrawebsite\packages.config" -PackagesDirectory packages
+          if (Test-Path "${{ env.WEBSITE_PROJECT }}\packages.config") {
+            nuget restore "${{ env.WEBSITE_PROJECT }}\packages.config" -PackagesDirectory packages
           }
 
       - name: Build Solution
         run: |
-          msbuild cobrawebsite.sln /p:Configuration=Release /p:Platform="Any CPU"
+          msbuild ${{ env.SLN_FILE }} /p:Configuration=Release /p:Platform="Any CPU"
           
       - name: Copy dependencies from nuget and build
         run: |
-          if (!(Test-Path "cobrawebsite\Bin")) { New-Item -ItemType Directory -Path "cobrawebsite\Bin" -Force }
-          Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Copy-Item -Destination "cobrawebsite\Bin\" -Force      
+          if (!(Test-Path "${{ env.WEBSITE_PROJECT }}\Bin")) { New-Item -ItemType Directory -Path "${{ env.WEBSITE_PROJECT }}\Bin" -Force }
+          Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Copy-Item -Destination "${{ env.WEBSITE_PROJECT }}\Bin\" -Force      
 
       - name: Publish website
         run: |
-          C:\Windows\Microsoft.NET\Framework64\v4.0.30319\aspnet_compiler.exe -v / -p cobrawebsite -f -u publish
-          Copy-Item -Path "cobrawebsite\Bin\*" -Destination "publish\Bin\" -Recurse -Force
+          C:\Windows\Microsoft.NET\Framework64\v4.0.30319\aspnet_compiler.exe -v / -p ${{ env.WEBSITE_PROJECT }} -f -u publish
+          Copy-Item -Path "${{ env.WEBSITE_PROJECT }}\Bin\*" -Destination "publish\Bin\" -Recurse -Force
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -60,28 +62,28 @@ jobs:
           name: cobra-app
           path: publish
 
-  deploytodev:
-    permissions:
-      contents: none
-    runs-on: windows-latest
-    needs: build
-    environment:
-      name: 'Development'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+  # deploytodev:
+  #   permissions:
+  #     contents: none
+  #   runs-on: windows-latest
+  #   needs: build
+  #   environment:
+  #     name: 'Development'
+  #     url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
  
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: cobra-app
+  #   steps:
+  #     - name: Download artifact from build job
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: cobra-app
  
-      - name: Deploy to Azure Web App
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME_DEV }}
-          publish-profile: ${{ secrets.devgithubsecretappdeployment }}
-          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+  #     - name: Deploy to Azure Web App
+  #       id: deploy-to-webapp
+  #       uses: azure/webapps-deploy@v2
+  #       with:
+  #         app-name: ${{ env.AZURE_WEBAPP_NAME_DEV }}
+  #         publish-profile: ${{ secrets.devgithubsecretappdeployment }}
+  #         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
   # deploytostage:
   #    permissions:
