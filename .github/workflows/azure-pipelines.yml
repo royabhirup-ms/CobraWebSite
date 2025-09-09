@@ -32,7 +32,7 @@ jobs:
       - name: Restore packages
         run: |
           # Clean and restore packages
-          Remove-Item -Path "packages" -Recurse -Force
+          if (Test-Path "packages") { Remove-Item -Path "packages" -Recurse -Force }
           # Nuget restore for class libraries if any
           nuget restore cobrawebsite.sln -PackagesDirectory packages
           # Nuget restore for website project if packages.config exists
@@ -46,7 +46,6 @@ jobs:
           
       - name: Copy dependencies from nuget and build
         run: |
-          New-Item -ItemType Directory -Path "cobrawebsite\Bin" -Force
           Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Where-Object { $_.Directory.Name -like "net4*" } | Copy-Item -Destination "publish\Bin\" -Force
           
       - name: Publish website
