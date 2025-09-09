@@ -33,18 +33,20 @@ jobs:
         run: |
           # Clean and restore packages
           Remove-Item -Path "packages" -Recurse -Force -ErrorAction SilentlyContinue
+          # Nuget restore for class libraries if any
           nuget restore cobrawebsite.sln -PackagesDirectory packages
+          # Nuget restore for website project if packages.config exists
           if (Test-Path "cobrawebsite\packages.config") {
             nuget restore "cobrawebsite\packages.config" -PackagesDirectory packages
           }
+
+          # Build solution
+          msbuild cobrawebsite.sln /p:Configuration=Release /p:Platform="Any CPU"
           
-          # Copy dependencies and build
+          # Copy dependencies from nuget and build
           New-Item -ItemType Directory -Path "cobrawebsite\Bin" -Force -ErrorAction SilentlyContinue
           Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Where-Object { $_.Directory.Name -like "net4*" } | Copy-Item -Destination "cobrawebsite\Bin\" -Force
           
-          # Build solution
-          msbuild cobrawebsite.sln /p:Configuration=Release /p:Platform="Any CPU"
-
       - name: Publish website
         run: |
           C:\Windows\Microsoft.NET\Framework64\v4.0.30319\aspnet_compiler.exe -v / -p cobrawebsite -f -u publish
