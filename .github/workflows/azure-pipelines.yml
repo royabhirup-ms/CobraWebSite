@@ -32,8 +32,15 @@ jobs:
           # Clear any existing packages folder to ensure clean restore
           if (Test-Path "packages") { Remove-Item -Path "packages" -Recurse -Force }
           
-          # Restore packages for the solution (works with packages.config files)
+          # For solutions with Website projects, we need to restore packages differently
+          # First, restore packages for the class library projects
           nuget restore cobrawebsite.sln -PackagesDirectory packages -Verbosity detailed
+          
+          # For Website projects, we need to manually restore packages from packages.config
+          if (Test-Path "cobrawebsite\packages.config") {
+            Write-Host "Restoring packages for Website project..."
+            nuget restore "cobrawebsite\packages.config" -PackagesDirectory packages -Verbosity detailed
+          }
           
           # Verify packages were restored
           Write-Host "Verifying package restoration..."
