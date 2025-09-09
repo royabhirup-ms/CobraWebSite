@@ -40,15 +40,17 @@ jobs:
             nuget restore "cobrawebsite\packages.config" -PackagesDirectory packages
           }
 
-      - name: Build Solution
-        run: |
-          msbuild cobrawebsite.sln /p:Configuration=Release /p:Platform="Any CPU"
+     
           
       - name: Copy dependencies from nuget and build
         run: |
           if (!(Test-Path "cobrawebsite\Bin")) { New-Item -ItemType Directory -Path "cobrawebsite\Bin" -Force }
           Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Where-Object { $_.Directory.Name -like "net4*" } | Copy-Item -Destination "cobrawebsite\Bin\" -Force
-          
+
+      - name: Build Solution
+        run: |
+          msbuild cobrawebsite.sln /p:Configuration=Release /p:Platform="Any CPU"
+
       - name: Publish website
         run: |
           C:\Windows\Microsoft.NET\Framework64\v4.0.30319\aspnet_compiler.exe -v / -p cobrawebsite -f -u publish
