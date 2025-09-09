@@ -16,7 +16,7 @@ namespace Cobra.Data
         public string myData()
         {
             string appName = "Cobra";
-            appName = appName + " Website Deploy";
+            appName = appName + " Website Deploy Test From Class Library";
             return appName;
 
         }
