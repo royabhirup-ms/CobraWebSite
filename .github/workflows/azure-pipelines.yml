@@ -10,8 +10,10 @@ on:
   push:
     branches: [ "master" ]
   workflow_dispatch: 
+
 permissions:
   contents: read 
+
 jobs:
   build:
     runs-on: windows-latest 
@@ -27,56 +29,26 @@ jobs:
         with:
           nuget-version: 'latest'
 
-      - name: Restore NuGet packages
+      - name: Restore packages and build
         run: |
-          # Clear any existing packages folder to ensure clean restore
-          if (Test-Path "packages") { Remove-Item -Path "packages" -Recurse -Force }
-          
-          # For solutions with Website projects, we need to restore packages differently
-          # First, restore packages for the class library projects
-          nuget restore cobrawebsite.sln -PackagesDirectory packages -Verbosity detailed
-          
-          # For Website projects, we need to manually restore packages from packages.config
+          # Clean and restore packages
+          Remove-Item -Path "packages" -Recurse -Force -ErrorAction SilentlyContinue
+          nuget restore cobrawebsite.sln -PackagesDirectory packages
           if (Test-Path "cobrawebsite\packages.config") {
-            Write-Host "Restoring packages for Website project..."
-            nuget restore "cobrawebsite\packages.config" -PackagesDirectory packages -Verbosity detailed
+            nuget restore "cobrawebsite\packages.config" -PackagesDirectory packages
           }
           
-          # Verify packages were restored
-          Write-Host "Verifying package restoration..."
-          if (Test-Path "packages") {
-            Write-Host "Packages directory exists"
-            Get-ChildItem -Path "packages" | Write-Host
-          } else {
-            Write-Error "Packages directory not found after restore"
-            exit 1
-          }
-
-      - name: Copy NuGet dependencies to Bin
-        run: |
-          if (!(Test-Path "cobrawebsite\Bin")) { New-Item -ItemType Directory -Path "cobrawebsite\Bin" -Force }
-          Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Where-Object {
-            $_.Directory.Name -like "net4*"
-          } | ForEach-Object {
-            Copy-Item -Path $_.FullName -Destination "cobrawebsite\Bin\" -Force
-          }
-
-      - name: Build solution
-        run: |
-          msbuild cobrawebsite.sln `
-          /p:Configuration=Release `
-          /p:Platform="Any CPU"
-
-      - name: Precompile and publish website
-        run: |
-          # Precompile the website
-          C:\Windows\Microsoft.NET\Framework64\v4.0.30319\aspnet_compiler.exe `
-          -v / -p cobrawebsite -f -u publish
+          # Copy dependencies and build
+          New-Item -ItemType Directory -Path "cobrawebsite\Bin" -Force -ErrorAction SilentlyContinue
+          Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Where-Object { $_.Directory.Name -like "net4*" } | Copy-Item -Destination "cobrawebsite\Bin\" -Force
           
-          # Copy Bin directory with NuGet packages
+          # Build solution
+          msbuild cobrawebsite.sln /p:Configuration=Release /p:Platform="Any CPU"
+
+      - name: Publish website
+        run: |
+          C:\Windows\Microsoft.NET\Framework64\v4.0.30319\aspnet_compiler.exe -v / -p cobrawebsite -f -u publish
           Copy-Item -Path "cobrawebsite\Bin\*" -Destination "publish\Bin\" -Recurse -Force
-          
-          Write-Host "Published website with dependencies"
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
