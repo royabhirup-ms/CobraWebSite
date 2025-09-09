@@ -52,6 +52,15 @@ jobs:
             exit 1
           }
 
+      - name: Copy NuGet dependencies to Bin
+        run: |
+          if (!(Test-Path "cobrawebsite\Bin")) { New-Item -ItemType Directory -Path "cobrawebsite\Bin" -Force }
+          Get-ChildItem -Path "packages" -Recurse -Filter "*.dll" | Where-Object {
+            $_.Directory.Name -like "net4*"
+          } | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination "cobrawebsite\Bin\" -Force
+          }
+
       - name: Build solution
         run: |
           msbuild cobrawebsite.sln `
